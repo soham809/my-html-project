@@ -2,38 +2,908 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to My HTML Project</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PDF Merger Pro - Secure Offline Tool</title>
+    <meta name="description" content="Merge, rotate, and organize PDF files offline in your browser.">
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- PWA Manifest (Data URI for single file portability) -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"PDF Merger Pro","short_name":"PDF Pro","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#2563eb","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/337/337946.png","sizes":"512x512","type":"image/png"}]}'>
+
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
+        /* CSS Variables & Reset */
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 12px;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+
+        .dark-mode {
+            --primary: #3b82f6;
+            --primary-dark: #60a5fa;
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
         }
-        h1 {
-            color: #667eea;
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg-body); color: var(--text-main); transition: background 0.3s, color 0.3s; padding-bottom: 80px; }
+        
+        /* Layout */
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        
+        /* Header */
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
+        .badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; vertical-align: middle; }
+        
+        .header-controls { display: flex; gap: 10px; }
+        .btn-icon { background: none; border: 1px solid var(--border); color: var(--text-main); padding: 8px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .btn-icon:hover { background: var(--border); }
+
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 40px 20px;
             text-align: center;
+            background: var(--bg-card);
+            transition: 0.3s;
+            cursor: pointer;
+            margin-bottom: 20px;
+            position: relative;
         }
-        p {
-            line-height: 1.6;
+        .drop-zone.active { border-color: var(--primary); background: rgba(37, 99, 235, 0.05); transform: scale(1.01); }
+        .drop-zone input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .drop-icon { font-size: 48px; color: var(--primary); margin-bottom: 10px; }
+        
+        /* File List */
+        .file-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        
+        /* File Card */
+        .file-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 15px;
+            display: flex;
+            gap: 15px;
+            box-shadow: var(--shadow);
+            position: relative;
+            transition: transform 0.2s;
+            touch-action: none; /* For drag handling */
+        }
+        .file-card.dragging { opacity: 0.5; border: 2px solid var(--primary); }
+        
+        .thumbnail-container {
+            width: 80px;
+            height: 110px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .thumbnail-container img { width: 100%; height: 100%; object-fit: cover; }
+        .thumbnail-spinner { width: 20px; height: 20px; border: 2px solid var(--primary); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+
+        .card-details { flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+        .file-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
+        .file-meta { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+        
+        .card-controls { display: flex; gap: 5px; flex-wrap: wrap; }
+        .control-group { display: flex; align-items: center; gap: 5px; background: var(--bg-body); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); }
+        .control-group input { width: 60px; border: none; background: transparent; color: var(--text-main); font-size: 0.8rem; outline: none; }
+        
+        .btn-sm { padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); cursor: pointer; }
+        .btn-sm:hover { background: var(--border); }
+        .btn-delete { color: var(--danger); border-color: rgba(239, 68, 68, 0.2); }
+        .btn-delete:hover { background: #fef2f2; }
+        .btn-move { cursor: grab; }
+
+        /* Bottom Floating Bar */
+        .action-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+        
+        .input-group-container {
+            display: flex; 
+            flex: 1;
+            gap: 20px; /* Increased gap */
+            align-items: flex-end; /* Align items to the bottom */
+            min-width: 0;
+            max-width: 70%;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex-shrink: 0;
+            max-width: 300px;
+        }
+        
+        .input-file-name {
+            display: flex; 
+            align-items: center; 
+            gap: 5px;
+        }
+        
+        .input-file-name input {
+            padding: 10px; 
+            border: 1px solid var(--border); 
+            border-radius: 6px; 
+            background: var(--bg-body); 
+            color: var(--text-main);
+            flex: 1;
+            min-width: 0;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .btn-primary:disabled { background: var(--secondary); opacity: 0.7; cursor: not-allowed; }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-secondary:hover { background: var(--bg-body); }
+
+        /* Progress Overlay */
+        .overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
+            backdrop-filter: blur(4px);
+        }
+        .progress-bar { width: 300px; height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; margin-top: 20px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--success); width: 0%; transition: width 0.3s; }
+        
+        /* Utilities */
+        .hidden { display: none !important; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 20px; right: 20px;
+            background: var(--text-main); color: var(--bg-card);
+            padding: 12px 20px; border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transform: translateY(-100px); transition: transform 0.3s;
+            z-index: 2000;
+        }
+        .toast.show { transform: translateY(0); }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1500;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: var(--bg-card); width: 90%; max-width: 500px;
+            border-radius: var(--radius); padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-height: 80vh; display: flex; flex-direction: column;
+        }
+        .history-list { overflow-y: auto; flex: 1; margin: 15px 0; }
+        .history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; border-bottom: 1px solid var(--border);
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-meta { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .file-list { grid-template-columns: 1fr; }
+            .action-bar { padding: 10px; flex-direction: column; align-items: stretch; }
+            .input-group-container { max-width: 100%; flex-direction: column; gap: 8px; align-items: stretch; }
+            .input-wrapper { max-width: 100%; }
+            .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
+            .header-controls span { display: none; } /* Hide toggle text on mobile */
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to My HTML Project!</h1>
-        <p>This is a simple HTML file created in GitHub. You can edit this file and add your own content.</p>
-        <p>Happy coding! 🚀</p>
+
+    <!-- Overlay -->
+    <div id="loadingOverlay" class="overlay">
+        <h3 id="loadingText" data-i18n="processing">Processing...</h3>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <p id="loadingPercent" style="margin-top: 10px; font-variant-numeric: tabular-nums;">0%</p>
     </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Action Complete</div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                PDF Merger Pro <span class="badge">Offline</span>
+            </h1>
+            <div class="header-controls">
+                <button class="btn-icon" onclick="toggleHistory()" title="History">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </button>
+                <button class="btn-icon" onclick="toggleLanguage()" title="Switch Language">
+                    <span id="langLabel">EN/HI</span>
+                </button>
+                <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark Mode">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-icon">📂</div>
+            <h3 data-i18n="dropTitle">Drag & Drop PDF files here</h3>
+            <p data-i18n="dropSubtitle">or click to select files (No size or file count limits!)</p>
+            <input type="file" id="fileInput" multiple accept="application/pdf">
+        </div>
+
+        <!-- Toolbar -->
+        <div id="fileToolbar" class="header-controls hidden" style="margin-bottom: 15px; justify-content: space-between;">
+            <span style="font-weight: 600; color: var(--text-muted);"><span id="fileCount">0</span> <span data-i18n="filesSelected">files selected</span></span>
+            <button class="btn-sm btn-delete" onclick="clearAllFiles()" data-i18n="clearAll">Clear All</button>
+        </div>
+
+        <!-- File List -->
+        <div id="fileList" class="file-list">
+            <!-- Items injected here -->
+        </div>
+
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="modal-backdrop" onclick="if(event.target===this) toggleHistory()">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0" data-i18n="historyTitle">History</h3>
+                <button class="btn-icon" onclick="toggleHistory()">✕</button>
+            </div>
+            <div id="historyListContent" class="history-list">
+                <!-- History items -->
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+                <button class="btn-sm btn-delete" onclick="clearHistory()" data-i18n="clearHistory">Clear History</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Generic Confirmation/Alert Modal (Replaces alert() and confirm()) -->
+    <div id="confirmModal" class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+        <div class="modal-content">
+            <h3 id="modalTitle" style="margin-top:0;">Confirmation</h3>
+            <p id="modalMessage">Are you sure?</p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button id="modalCancel" class="btn-secondary" onclick="closeModal()" data-i18n="cancel">Cancel</button>
+                <button id="modalConfirm" class="btn-primary" data-i18n="ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Floating Action Bar -->
+    <div class="action-bar">
+        <div class="input-group-container">
+            <!-- Output File Name Input -->
+            <div class="input-wrapper">
+                <label for="outputName" style="font-size:0.75rem; color: var(--text-muted);" data-i18n="outputNameLabel">Output File Name</label>
+                <div class="input-file-name">
+                    <input type="text" id="outputName" placeholder="Merged_Document">
+                    <span style="color: var(--text-muted)">.pdf</span>
+                </div>
+            </div>
+            
+            <!-- Fixed Watermark Status -->
+            <div style="display:flex; align-items:flex-end;">
+                <span style="font-size:0.75rem; font-weight:600; color:var(--primary); opacity:0.7;">
+                    Watermark: INFINITY PDF (Fixed)
+                </span>
+            </div>
+        </div>
+        
+        <button class="btn-primary" onclick="mergeFiles()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span data-i18n="mergeBtn">Merge PDF</span>
+        </button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <script>
+        // --- CONFIGURATION & STATE ---
+        // Limits removed. The application is now constrained only by browser memory.
+        const STATE = {
+            files: [], // Array of { id, fileObject, rotation, range }
+            isDark: false,
+            lang: 'en'
+        };
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const DICTIONARY = {
+            en: {
+                dropTitle: "Drag & Drop PDF files here",
+                dropSubtitle: "or click to select files (No size or file count limits!)",
+                processing: "Processing...",
+                filesSelected: "files selected",
+                clearAll: "Clear All",
+                mergeBtn: "Merge PDFs",
+                pageRange: "Pages (e.g. 1-5, 7)",
+                rotate: "Rotate",
+                historyTitle: "Merge History",
+                clearHistory: "Clear History",
+                noHistory: "No history found",
+                filesMerged: "files merged",
+                outputNameLabel: "Output File Name",
+                // New strings for modal
+                cancel: "Cancel",
+                ok: "OK",
+                errorTitle: "Error",
+                warningTitle: "Warning",
+            },
+            hi: {
+                dropTitle: "PDF फ़ाइलें यहाँ खींचें और छोड़ें",
+                dropSubtitle: "या फाइल चुनने के लिए क्लिक करें (आकार या फ़ाइल संख्या की कोई सीमा नहीं है!)",
+                processing: "प्रक्रिया जारी है...",
+                filesSelected: "फ़ाइलें चयनित",
+                clearAll: "सभी हटाएँ",
+                mergeBtn: "PDF मर्ज करें",
+                pageRange: "पृष्ठ (जैसे 1-5, 7)",
+                rotate: "घुमाएं",
+                historyTitle: "इतिहास",
+                clearHistory: "इतिहास मिटाएं",
+                noHistory: "कोई इतिहास नहीं मिला",
+                filesMerged: "फाइलें मर्ज की गईं",
+                outputNameLabel: "आउटपुट फ़ाइल नाम",
+                // New strings for modal
+                cancel: "रद्द करें",
+                ok: "ठीक है",
+                errorTitle: "त्रुटि",
+                warningTitle: "चेतावनी",
+            }
+        };
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            setupDragAndDrop();
+        });
+
+        // --- DOM ELEMENTS ---
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileListEl = document.getElementById('fileList');
+        const overlay = document.getElementById('loadingOverlay');
+        const progressFill = document.getElementById('progressFill');
+        const loadingPercent = document.getElementById('loadingPercent');
+        
+        // Modal Elements
+        const confirmModal = document.getElementById('confirmModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalConfirmBtn = document.getElementById('modalConfirm');
+        const modalCancelBtn = document.getElementById('modalCancel');
+
+
+        // --- THEME & LANG ---
+        function toggleTheme() {
+            STATE.isDark = !STATE.isDark;
+            document.body.classList.toggle('dark-mode', STATE.isDark);
+            localStorage.setItem('pdf_theme', STATE.isDark ? 'dark' : 'light');
+        }
+
+        function toggleLanguage() {
+            STATE.lang = STATE.lang === 'en' ? 'hi' : 'en';
+            updateText();
+            localStorage.setItem('pdf_lang', STATE.lang);
+        }
+
+        function updateText() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (DICTIONARY[STATE.lang][key]) {
+                    el.innerText = DICTIONARY[STATE.lang][key];
+                }
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (DICTIONARY[STATE.lang][key]) {
+                    el.placeholder = DICTIONARY[STATE.lang][key];
+                }
+            });
+            document.getElementById('langLabel').innerText = STATE.lang === 'en' ? 'EN' : 'HI';
+            
+            // Manually update the dropzone subtitle based on current language
+            document.querySelector('#dropZone p').innerText = DICTIONARY[STATE.lang].dropSubtitle;
+        }
+
+        function loadSettings() {
+            if (localStorage.getItem('pdf_theme') === 'dark') {
+                STATE.isDark = true;
+                document.body.classList.add('dark-mode');
+            }
+            if (localStorage.getItem('pdf_lang')) {
+                STATE.lang = localStorage.getItem('pdf_lang');
+            }
+            // Ensure initial placeholder text is set
+            updateText();
+        }
+
+        // --- DRAG & DROP LOGIC ---
+        function setupDragAndDrop() {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+            dropZone.addEventListener('dragenter', () => dropZone.classList.add('active'));
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+            
+            dropZone.addEventListener('drop', (e) => {
+                dropZone.classList.remove('active');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        }
+
+        async function handleFiles(files) {
+            // Limits removed as per user request. 
+            // The browser's memory and CPU are now the only constraints.
+
+            const newFiles = Array.from(files).filter(f => f.type === 'application/pdf');
+            if (newFiles.length === 0) return;
+
+            // Add placeholders immediately
+            for (const file of newFiles) {
+                const id = Date.now() + Math.random().toString(36).substr(2, 9);
+                const fileObj = {
+                    id: id,
+                    file: file,
+                    rotation: 0,
+                    range: '' 
+                };
+                STATE.files.push(fileObj);
+                createFileCard(fileObj); // Create UI
+                generateThumbnail(fileObj); // Load thumbnail async
+            }
+
+            updateUI();
+        }
+
+        function createFileCard(fileObj) {
+            const div = document.createElement('div');
+            div.className = 'file-card';
+            div.id = `card-${fileObj.id}`;
+            div.draggable = true;
+            
+            // Drag Sorting Events
+            div.addEventListener('dragstart', () => { div.classList.add('dragging'); });
+            div.addEventListener('dragend', () => { 
+                div.classList.remove('dragging'); 
+                reorderStateFromDOM();
+            });
+
+            // Allow dropping onto this card to swap
+            div.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggingItem = document.querySelector('.dragging');
+                if (draggingItem !== div) {
+                    const list = document.getElementById('fileList');
+                    const children = [...list.children];
+                    const curPos = children.indexOf(div);
+                    const dragPos = children.indexOf(draggingItem);
+                    if (curPos > dragPos) list.insertBefore(draggingItem, div.nextSibling);
+                    else list.insertBefore(draggingItem, div);
+                }
+            });
+
+            div.innerHTML = `
+                <div class="thumbnail-container" id="thumb-${fileObj.id}">
+                    <div class="thumbnail-spinner"></div>
+                </div>
+                <div class="card-details">
+                    <div>
+                        <div class="file-name" title="${fileObj.file.name}">${fileObj.file.name}</div>
+                        <div class="file-meta">${(fileObj.file.size / 1024 / 1024).toFixed(2)} MB</div>
+                    </div>
+                    <div class="card-controls">
+                        <div class="control-group" title="${DICTIONARY[STATE.lang].pageRange}">
+                            <span style="font-size:12px">📄</span>
+                            <input type="text" placeholder="1-5, 7" onchange="updateRange('${fileObj.id}', this.value)" value="${fileObj.range}">
+                        </div>
+                        <button class="btn-sm" onclick="rotateFile('${fileObj.id}')" title="${DICTIONARY[STATE.lang].rotate} 90°">↻ <span id="rot-${fileObj.id}">0°</span></button>
+                        <button class="btn-sm btn-delete" onclick="removeFile('${fileObj.id}')">✕</button>
+                    </div>
+                </div>
+            `;
+            fileListEl.appendChild(div);
+        }
+
+        async function generateThumbnail(fileObj) {
+            try {
+                const arrayBuffer = await fileObj.file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const page = await pdf.getPage(1);
+                
+                const scale = 1.5;
+                const viewport = page.getViewport({ scale: scale });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL();
+                
+                const container = document.getElementById(`thumb-${fileObj.id}`);
+                container.innerHTML = '';
+                container.appendChild(img);
+            } catch (e) {
+                console.error(e);
+                document.getElementById(`thumb-${fileObj.id}`).innerHTML = '<span style="font-size:24px">⚠️</span>';
+            }
+        }
+
+        // --- FILE OPERATIONS ---
+
+        function updateRange(id, value) {
+            const f = STATE.files.find(x => x.id === id);
+            if(f) f.range = value;
+        }
+
+        function rotateFile(id) {
+            const f = STATE.files.find(x => x.id === id);
+            if(f) {
+                f.rotation = (f.rotation + 90) % 360;
+                document.getElementById(`rot-${id}`).innerText = f.rotation + '°';
+                // Visual feedback on thumbnail
+                const img = document.querySelector(`#thumb-${id} img`);
+                if(img) img.style.transform = `rotate(${f.rotation}deg)`;
+            }
+        }
+
+        function removeFile(id) {
+            STATE.files = STATE.files.filter(f => f.id !== id);
+            document.getElementById(`card-${id}`).remove();
+            updateUI();
+        }
+
+        // Replaced 'confirm' with custom modal
+        function clearAllFiles() {
+            const msg = STATE.lang === 'en' ? 'Are you sure you want to remove all PDF files?' : 'क्या आप वाकई सभी PDF फ़ाइलों को हटाना चाहते हैं?';
+            showConfirmation(DICTIONARY[STATE.lang].warningTitle, msg, () => {
+                STATE.files = [];
+                fileListEl.innerHTML = '';
+                updateUI();
+                fileInput.value = '';
+            });
+        }
+
+        function reorderStateFromDOM() {
+            const newOrderIds = Array.from(fileListEl.children).map(div => div.id.replace('card-', ''));
+            // Sort STATE.files based on DOM order
+            STATE.files.sort((a, b) => newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id));
+        }
+
+        function updateUI() {
+            const count = STATE.files.length;
+            document.getElementById('fileCount').innerText = count;
+            document.getElementById('fileToolbar').classList.toggle('hidden', count === 0);
+            document.querySelector('.action-bar button').disabled = count === 0;
+            
+            // Adjust grid if many files
+            if (count > 0) dropZone.classList.add('hidden');
+            else dropZone.classList.remove('hidden');
+        }
+
+        // --- MERGE LOGIC ---
+
+        async function mergeFiles() {
+            if (STATE.files.length === 0) return;
+
+            showLoading(true);
+            try {
+                const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
+                const mergedPdf = await PDFDocument.create();
+                
+                const totalFiles = STATE.files.length;
+                
+                for (let i = 0; i < totalFiles; i++) {
+                    try {
+                        updateProgress((i / totalFiles) * 75); // First 75% is loading/copying
+                        
+                        const fileObj = STATE.files[i];
+                        const arrayBuffer = await fileObj.file.arrayBuffer();
+                        // Added ignoreEncryption: true to handle potentially encrypted PDFs
+                        const pdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+                        
+                        // Parse Range
+                        let pageIndices = [];
+                        const pageCount = pdf.getPageCount();
+                        
+                        if (!fileObj.range.trim()) {
+                            // All pages
+                            pageIndices = Array.from({length: pageCount}, (_, k) => k);
+                        } else {
+                            // Parse "1-3, 5" syntax
+                            const parts = fileObj.range.split(',');
+                            parts.forEach(p => {
+                                p = p.trim();
+                                if (p.includes('-')) {
+                                    const [start, end] = p.split('-').map(num => parseInt(num));
+                                    const s = Math.max(0, start - 1);
+                                    const e = isNaN(end) ? pageCount - 1 : Math.min(pageCount - 1, end - 1);
+                                    for(let k=s; k<=e; k++) pageIndices.push(k);
+                                } else {
+                                    const num = parseInt(p) - 1;
+                                    if (num >= 0 && num < pageCount) pageIndices.push(num);
+                                }
+                            });
+                        }
+
+                        // Copy pages
+                        const copiedPages = await mergedPdf.copyPages(pdf, pageIndices);
+                        
+                        copiedPages.forEach((page) => {
+                            if (fileObj.rotation !== 0) {
+                                page.setRotation(degrees(page.getRotation().angle + fileObj.rotation));
+                            }
+                            mergedPdf.addPage(page);
+                        });
+                    } catch (e) {
+                         // Throw a clearer error message indicating which file failed
+                         throw new Error(`Error processing file "${STATE.files[i].file.name}": ${e.message}`);
+                    }
+                }
+                
+                // --- FIXED WATERMARK FEATURE IMPLEMENTATION ---
+                updateProgress(80); 
+                const FIXED_WATERMARK = "INFINITY PDF";
+                const watermarkFontSize = 20; // Bigger text
+                const watermarkOpacity = 0.3; 
+                const padding = 15;
+                
+                // Embed a bold font
+                const font = await mergedPdf.embedFont(StandardFonts.HelveticaBold); // Using Bold font
+                
+                const pages = mergedPdf.getPages();
+                for (let i = 0; i < pages.length; i++) {
+                    const page = pages[i];
+                    const { width, height } = page.getSize();
+
+                    // Measure the text width
+                    const textWidth = font.widthOfTextAtSize(FIXED_WATERMARK, watermarkFontSize);
+                    
+                    // Calculate position: X (from right) and Y (from bottom)
+                    const x = width - textWidth - padding;
+                    const y = padding; 
+
+                    page.drawText(FIXED_WATERMARK, {
+                        x: x,
+                        y: y,
+                        size: watermarkFontSize,
+                        font: font,
+                        color: rgb(0, 0, 0), // Black
+                        opacity: watermarkOpacity, // Subtle opacity
+                    });
+                }
+                // --- END WATERMARK FEATURE ---
+
+
+                updateProgress(90); // Saving
+                const pdfBytes = await mergedPdf.save();
+                
+                updateProgress(100);
+
+                // Filename
+                let name = document.getElementById('outputName').value.trim();
+                if (!name) {
+                    const now = new Date();
+                    name = `Merged_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+                }
+                if (!name.toLowerCase().endsWith('.pdf')) name += '.pdf';
+
+                // Download
+                const blob = new Blob([pdfBytes], { type: "application/pdf" });
+                saveAs(blob, name);
+                
+                addToRecent(name, STATE.files.length);
+                showToast("PDF Merged Successfully!");
+
+            } catch (err) {
+                console.error(err);
+                showAlert(DICTIONARY[STATE.lang].errorTitle, "Error merging files: " + err.message, true);
+            } finally {
+                setTimeout(() => showLoading(false), 500);
+            }
+        }
+
+        // Helper for rotation (needed due to PDFLib structure change)
+        const degrees = (d) => ({ angle: d, type: 'degrees' }); 
+        
+        // --- UTILS ---
+
+        function showLoading(show) {
+            overlay.style.display = show ? 'flex' : 'none';
+            if(show) {
+                updateProgress(0);
+                loadingPercent.innerText = "0%";
+            }
+        }
+
+        function updateProgress(val) {
+            progressFill.style.width = val + '%';
+            loadingPercent.innerText = Math.round(val) + '%';
+        }
+
+        function showToast(msg, type='info') {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.backgroundColor = type === 'error' ? 'var(--danger)' : 'var(--text-main)';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        // --- MODAL UTILS (Replaces alert() and confirm()) ---
+
+        function closeModal() {
+            confirmModal.classList.remove('open');
+            // Reset modal state
+            modalConfirmBtn.onclick = null;
+            modalCancelBtn.onclick = closeModal;
+            modalTitle.innerText = '';
+            modalMessage.innerText = '';
+        }
+
+        function showConfirmation(title, message, onConfirm) {
+            // Set text based on current language
+            const dict = DICTIONARY[STATE.lang];
+
+            modalTitle.innerText = title;
+            modalMessage.innerText = message;
+            
+            modalCancelBtn.classList.remove('hidden');
+            modalCancelBtn.innerText = dict.cancel || 'Cancel';
+            
+            modalConfirmBtn.innerText = dict.ok || 'OK';
+
+            modalConfirmBtn.onclick = () => {
+                closeModal();
+                onConfirm();
+            };
+            confirmModal.classList.add('open');
+        }
+
+        function showAlert(title, message, isError = false) {
+            modalTitle.innerText = title;
+            modalMessage.innerText = message;
+            
+            modalCancelBtn.classList.add('hidden'); // Hide cancel button for alerts
+            modalConfirmBtn.innerText = STATE.lang === 'en' ? 'Close' : 'बंद करें';
+            modalConfirmBtn.onclick = closeModal;
+            
+            confirmModal.classList.add('open');
+        }
+
+        // --- HISTORY FEATURE ---
+        function toggleHistory() {
+            const modal = document.getElementById('historyModal');
+            const isOpen = modal.classList.contains('open');
+            if (!isOpen) renderHistory();
+            modal.classList.toggle('open');
+        }
+
+        function addToRecent(name, count) {
+            let history = JSON.parse(localStorage.getItem('pdf_history') || '[]');
+            const entry = {
+                name,
+                count,
+                date: new Date().toLocaleDateString(),
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            };
+            history.unshift(entry);
+            history = history.slice(0, 50); // Keep last 50
+            localStorage.setItem('pdf_history', JSON.stringify(history));
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyListContent');
+            const history = JSON.parse(localStorage.getItem('pdf_history') || '[]');
+            const dict = DICTIONARY[STATE.lang];
+            
+            if (history.length === 0) {
+                list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">${dict.noHistory}</div>`;
+                return;
+            }
+
+            list.innerHTML = history.map(h => `
+                <div class="history-item">
+                    <div>
+                        <div style="font-weight:600; font-size:0.9rem;">${h.name}</div>
+                        <div class="history-meta">${h.count} ${dict.filesMerged}</div>
+                    </div>
+                    <div class="history-meta" style="text-align:right;">
+                        <div>${h.date}</div>
+                        <div>${h.time}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Replaced 'confirm' with custom modal
+        function clearHistory() {
+            const msg = STATE.lang === 'en' ? 'Clear all merge history?' : 'क्या आप पूरा मर्ज इतिहास मिटाना चाहते हैं?';
+            showConfirmation(DICTIONARY[STATE.lang].warningTitle, msg, () => {
+                localStorage.removeItem('pdf_history');
+                renderHistory();
+            });
+        }
+    </script>
 </body>
 </html>
